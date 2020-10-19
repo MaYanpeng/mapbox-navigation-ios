@@ -115,11 +115,12 @@ public class NavigationDirections: Directions {
      */
     public func configureRouter(tilesURL: URL, completionHandler: @escaping NavigationDirectionsCompletionHandler) {
         NavigationDirectionsConstants.offlineSerialQueue.sync {
-            let params = RouterParams(tilesPath: tilesURL.path, inMemoryTileCache: nil, mapMatchingSpatialCache: nil, threadsCount: nil, endpointConfig: nil)
-            self.navigator.configureRouter(for: params)
-            DispatchQueue.main.async {
-                completionHandler(tilesURL)
-            }
+//            let params = RouterParams(tilesPath: tilesURL.path, inMemoryTileCache: nil, mapMatchingSpatialCache: nil, threadsCount: nil, endpointConfig: nil)
+//            self.navigator.configureRouter(for: params)
+//            DispatchQueue.main.async {
+//                completionHandler(tilesURL)
+//            }
+            print("OfflineDirections Unhandled")
         }
     }
     
@@ -154,7 +155,9 @@ public class NavigationDirections: Directions {
             let navigator: Navigator = {
                 let settingsProfile = SettingsProfile(application: ProfileApplication.kMobile,
                                                       platform: ProfilePlatform.KIOS)
-                return Navigator(profile: settingsProfile, config: NavigatorConfig(), customConfig: "")
+                let tileEndpointConfig = TileEndpointConfiguration(directions: Directions.shared, tilesVersion: PassiveLocationDataSource.defaultTilesVersionIdentifier)
+                let tilesConfig = TilesConfig(tilesPath: "", inMemoryTileCache: nil, mapMatchingSpatialCache: nil, threadsCount: nil, endpointConfig: tileEndpointConfig)
+                return Navigator(profile: settingsProfile, config: NavigatorConfig(), customConfig: "", tilesConfig: tilesConfig)
             }()
             let numberOfTiles = navigator.unpackTiles(forPackedTilesPath: tilePath, outputDirectory: outputPath)
             
@@ -239,7 +242,9 @@ public class NavigationDirections: Directions {
         if _navigator == nil {
             let settingsProfile = SettingsProfile(application: ProfileApplication.kMobile,
                                                   platform: ProfilePlatform.KIOS)
-            self._navigator = Navigator(profile: settingsProfile, config: NavigatorConfig(), customConfig: "")
+            let tileEndpointConfig = TileEndpointConfiguration(directions: self, tilesVersion: PassiveLocationDataSource.defaultTilesVersionIdentifier)
+            let tilesConfig = TilesConfig(tilesPath: "", inMemoryTileCache: nil, mapMatchingSpatialCache: nil, threadsCount: nil, endpointConfig: tileEndpointConfig)
+            self._navigator = Navigator(profile: settingsProfile, config: NavigatorConfig(), customConfig: "", tilesConfig: tilesConfig)
         }
         
         return _navigator

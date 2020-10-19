@@ -12,7 +12,17 @@ import Turf
  `RouteController` is responsible for the core navigation logic whereas
  `NavigationViewController` is responsible for displaying a default drop-in navigation UI.
  */
-open class RouteController: NSObject {
+open class RouteController: NSObject, ElectronicHorizonObserver {
+    public func onElectronicHorizonUpdated(for horizon: ElectronicHorizon, type: ElectronicHorizonResultType) {
+        print("ehorizon updated: \(horizon)")
+    }
+
+    public func onPositionUpdated(for position: GraphPosition) {
+        print("onPositionUpdated: \(position)")
+    }
+
+    public var peer: MBXPeerWrapper?
+
     public enum DefaultBehavior {
         public static let shouldRerouteFromLocation: Bool = true
         public static let shouldDiscardLocation: Bool = true
@@ -24,7 +34,12 @@ open class RouteController: NSObject {
     lazy var navigator: Navigator = {
         let settingsProfile = SettingsProfile(application: ProfileApplication.kMobile,
                                               platform: ProfilePlatform.KIOS)
-        return Navigator(profile: settingsProfile, config: NavigatorConfig(), customConfig: "")
+        let tileEndpointConfig = TileEndpointConfiguration(directions: directions, tilesVersion: PassiveLocationDataSource.defaultTilesVersionIdentifier)
+        let tilesConfig = TilesConfig(tilesPath: "", inMemoryTileCache: nil, mapMatchingSpatialCache: nil, threadsCount: nil, endpointConfig: tileEndpointConfig)
+        let navigator = Navigator(profile: settingsProfile, config: NavigatorConfig(), customConfig: "", tilesConfig: tilesConfig)
+        navigator.toggleHistoryFor(onOff: true)
+        navigator.setElectronicHorizonObserverFor(self)
+        return navigator
     }()
     
     public var indexedRoute: IndexedRoute {
@@ -186,18 +201,45 @@ open class RouteController: NSObject {
         let encoder = JSONEncoder()
         encoder.userInfo[.options] = progress.routeOptions
         guard let routeData = try? encoder.encode(progress.route),
-            let routeJSONString = String(data: routeData, encoding: .utf8) else {
+              let routeJSONString = String(data: routeData, encoding: .utf8) else {
             return
         }
         // TODO: Add support for alternative route
-        navigator.setRouteForRouteResponse(routeJSONString, route: 0, leg: UInt32(routeProgress.legIndex))
+        let guidanceMode: ActiveGuidanceMode
+
+        switch progress.routeOptions.profileIdentifier {
+        case .automobile, .automobileAvoidingTraffic:
+            guidanceMode = .kDriving
+        case .cycling:
+            guidanceMode = .kCycling
+        case .walking:
+            guidanceMode = .kWalking
+        default:
+            guidanceMode = .kDriving
+        }
+
+        let geometryEncoding: ActiveGuidanceGeometryEncoding
+
+        switch progress.routeOptions.shapeFormat {
+        case .geoJSON:
+            geometryEncoding = .kGeoJSON
+        case .polyline:
+            geometryEncoding = .kPolyline5
+        case .polyline6:
+            geometryEncoding = .kPolyline6
+        }
+        navigator.setRouteForRouteResponse(routeJSONString, route: 0, leg: UInt32(routeProgress.legIndex), options: ActiveGuidanceOptions(mode: guidanceMode, geometryEncoding: geometryEncoding))
     }
     
     /// updateRouteLeg is used to notify nav-native of the developer changing the active route-leg.
     private func updateRouteLeg(to value: Int) {
         let legIndex = UInt32(value)
-        let newStatus = navigator.changeRouteLeg(forRoute: 0, leg: legIndex)
-        updateIndexes(status: newStatus, progress: routeProgress)
+//        let newStatus = navigator.changeRouteLeg(forRoute: 0, leg: legIndex)
+
+        if navigator.changeRouteLeg(forRoute: 0, leg: legIndex) == true {
+            let newStatus = navigator.status(at: Date())
+            updateIndexes(status: newStatus, progress: routeProgress)
+        }
     }
     
     public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {

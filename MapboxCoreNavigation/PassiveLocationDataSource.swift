@@ -22,15 +22,19 @@ open class PassiveLocationDataSource: NSObject {
         self.directions = directions
         
         let settingsProfile = SettingsProfile(application: ProfileApplication.kMobile, platform: ProfilePlatform.KIOS)
-        self.navigator = Navigator(profile: settingsProfile, config: NavigatorConfig() , customConfig: "")
-        
+        let tileEndpointConfig = TileEndpointConfiguration(directions: directions, tilesVersion: PassiveLocationDataSource.defaultTilesVersionIdentifier)
+        let tilesConfig = TilesConfig(tilesPath: "", inMemoryTileCache: nil, mapMatchingSpatialCache: nil, threadsCount: nil, endpointConfig: tileEndpointConfig)
+        self.navigator = Navigator(profile: settingsProfile, config: NavigatorConfig() , customConfig: "", tilesConfig: tilesConfig)
+
         self.systemLocationManager = systemLocationManager ?? NavigationLocationManager()
         
         super.init()
         
         self.systemLocationManager.delegate = self
     }
-    
+
+    static let defaultTilesVersionIdentifier: String = "2020_06_05-03_00_00"
+
     /**
      The directions service that allows the location data source to access road network data.
      */
@@ -44,8 +48,8 @@ open class PassiveLocationDataSource: NSObject {
     /**
      The underlying navigator that performs map matching.
      */
-    let navigator: Navigator
-    
+    var navigator: Navigator?
+
     /**
      Whether the navigator’s router has been configured.
      
@@ -106,11 +110,13 @@ open class PassiveLocationDataSource: NSObject {
     }
 
     func configureNavigator(withURL tilesURL: URL, tilesVersion: String) {
+        self.navigator = nil
         let endpointConfig = TileEndpointConfiguration(directions: directions, tilesVersion: tilesVersion)
 
-        let params = RouterParams(tilesPath: tilesURL.path, inMemoryTileCache: nil, mapMatchingSpatialCache: nil, threadsCount: nil, endpointConfig: endpointConfig)
-        navigator.configureRouter(for: params)
-        
+        let settingsProfile = SettingsProfile(application: ProfileApplication.kMobile, platform: ProfilePlatform.KIOS)
+        let tilesConfig = TilesConfig(tilesPath: "", inMemoryTileCache: nil, mapMatchingSpatialCache: nil, threadsCount: nil, endpointConfig: endpointConfig)
+        self.navigator = Navigator(profile: settingsProfile, config: NavigatorConfig() , customConfig: "", tilesConfig: tilesConfig)
+
         isConfigured = true
     }
     
@@ -128,14 +134,17 @@ open class PassiveLocationDataSource: NSObject {
 
     private func didUpdate(locations: [CLLocation]) {
         for location in locations {
-            navigator.updateLocation(for: FixLocation(location))
+            navigator?.updateLocation(for: FixLocation(location))
         }
 
         guard let lastRawLocation = locations.last else {
             return
         }
 
-        let status = navigator.status(at: lastRawLocation.timestamp)
+        guard let status = navigator?.status(at: lastRawLocation.timestamp) else {
+            return
+        }
+
         let lastLocation = CLLocation(status.location)
 
         delegate?.passiveLocationDataSource(self, didUpdateLocation: lastLocation, rawLocation: lastRawLocation)
