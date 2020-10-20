@@ -10,7 +10,16 @@ import MapboxAccounts
  
  To find out when the user’s location changes, implement the `PassiveLocationDataSourceDelegate` protocol, or observe `Notification.Name.passiveLocationDataSourceDidUpdate` notifications for more detailed information.
  */
-open class PassiveLocationDataSource: NSObject {
+open class PassiveLocationDataSource: NSObject, ElectronicHorizonObserver {
+    public var peer: MBXPeerWrapper?
+
+    public func onElectronicHorizonUpdated(for horizon: ElectronicHorizon, type: ElectronicHorizonResultType) {
+        print("ehorizon updated: \(horizon)")
+    }
+
+    public func onPositionUpdated(for position: GraphPosition) {
+        print("ehorizon onPositionUpdated: \(position)")
+    }
     /**
      Initializes the location data source with the given directions service.
      
@@ -24,13 +33,15 @@ open class PassiveLocationDataSource: NSObject {
         let settingsProfile = SettingsProfile(application: ProfileApplication.kMobile, platform: ProfilePlatform.KIOS)
         let tileEndpointConfig = TileEndpointConfiguration(directions: directions, tilesVersion: PassiveLocationDataSource.defaultTilesVersionIdentifier)
         let tilesConfig = TilesConfig(tilesPath: "", inMemoryTileCache: nil, mapMatchingSpatialCache: nil, threadsCount: nil, endpointConfig: tileEndpointConfig)
-        self.navigator = Navigator(profile: settingsProfile, config: NavigatorConfig() , customConfig: "", tilesConfig: tilesConfig)
+        let passiveNavigator = Navigator(profile: settingsProfile, config: NavigatorConfig() , customConfig: "", tilesConfig: tilesConfig)
+        self.navigator = passiveNavigator
 
         self.systemLocationManager = systemLocationManager ?? NavigationLocationManager()
         
         super.init()
         
         self.systemLocationManager.delegate = self
+        passiveNavigator.setElectronicHorizonObserverFor(self)
     }
 
     static let defaultTilesVersionIdentifier: String = "2020_06_05-03_00_00"

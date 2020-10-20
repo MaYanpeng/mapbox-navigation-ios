@@ -18,7 +18,7 @@ open class RouteController: NSObject, ElectronicHorizonObserver {
     }
 
     public func onPositionUpdated(for position: GraphPosition) {
-        print("onPositionUpdated: \(position)")
+        print("ehorizon onPositionUpdated: \(position)")
     }
 
     public var peer: MBXPeerWrapper?
