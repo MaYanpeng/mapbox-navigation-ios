@@ -281,7 +281,6 @@ class RouteMapViewController: UIViewController {
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         mapView.enableFrameByFrameCourseViewTracking(for: 3)
-        navigationView.reinstallRequiredConstraints()
     }
 
     override func viewDidLayoutSubviews() {
